@@ -30,7 +30,7 @@ const (
 	sbByteSize = 1 << 10 // 1024 bytes per small buffer
 
 	maxBytesToFillViaCache = 512
-	smallBufferCutoff      = 32
+	sbCutoff               = 32
 
 	/*
 		Design Logic:
@@ -54,6 +54,8 @@ var _ = map[bool]int{false: 0, lbBlockByteSize == 8: 1}
 var _ = map[bool]int{false: 0, lbBlockCount == 512: 1}
 var _ = map[bool]int{false: 0, lbByteSize == 4096: 1}
 var _ = map[bool]int{false: 0, sbByteSize == 1024: 1}
+var _ = map[bool]int{false: 0, sbCutoff == 32: 1}
+var _ = map[bool]int{false: 0, maxBytesToFillViaCache == 512: 1}
 
 // Reader is a global, shared instance of a cryptographically
 // secure random number generator. It is safe for concurrent use.
@@ -96,7 +98,7 @@ func Read(b []byte) (n int, err error) {
 
 	cachePtr := cachePool.Get().(*cache)
 
-	if n < smallBufferCutoff {
+	if n < sbCutoff {
 		if n > cachePtr.sbCount {
 			cryptoRand.Read(cachePtr.sb)
 			cachePtr.sbCount = sbByteSize
