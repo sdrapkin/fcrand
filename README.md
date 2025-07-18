@@ -8,10 +8,10 @@
 3. Add `rand "github.com/sdrapkin/fcrand"`
 
 ## Features
-- Up to 10x faster for random data requests ≤512 bytes
+- Up to **10x faster** for random data requests ≤512 bytes
 - Maintains all cryptographic security guarantees of `crypto/rand`
-- Complete 100% API compatibility with `crypto/rand`
-- Thread-safe with zero configuration
+- Complete **100% API compatibility** with `crypto/rand`: a drop-in replacement
+- Thread-safe with zero configuration (same as `crypto/rand`)
 
 ### ⚙️Before:
 ```go
@@ -25,6 +25,36 @@ import (
     _ "crypto/rand"
     rand "github.com/sdrapkin/fcrand"
 )
+```
+## Example
+[go playground](https://go.dev/play/p/5SDsQH5RMbC)
+```go
+package main
+
+import (
+	"fmt"
+
+	rand "github.com/sdrapkin/fcrand"
+)
+
+func main() {
+	// Using rand.Read()
+	buf := make([]byte, 16)
+	rand.Read(buf)
+	fmt.Printf("rand.Read buf:   [%x]\n", buf)
+
+	// Using rand.Reader
+	rand.Reader.Read(buf)
+	fmt.Printf("rand.Reader buf: [%x]\n", buf)
+
+	// Using .Text()
+	token := rand.Text()
+	fmt.Printf("token: [%s]\n", token)
+
+	// Use .Prime() with rand.Reader
+	key, err := rand.Prime(rand.Reader, 1024)
+	fmt.Printf("prime: [%q]\n%v\n", key, err)
+}
 ```
 
 ## Requirements
