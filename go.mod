@@ -1,3 +1,3 @@
-module fcrand
+module github.com/sdrapkin/fcrand
 
-go 1.24.5
+go 1.24
