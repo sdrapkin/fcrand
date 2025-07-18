@@ -57,6 +57,11 @@ func main() {
 }
 ```
 
+## Documentation
+ [![Go Reference](https://pkg.go.dev/badge/github.com/sdrapkin/fcrand.svg)](https://pkg.go.dev/github.com/sdrapkin/fcrand)
+
+Full `go doc` style documentation: https://pkg.go.dev/github.com/sdrapkin/fcrand
+
 ## Requirements
 - Go 1.24+
 
