@@ -1,5 +1,5 @@
 # ⚡`fcrand` (fast crypto rand)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![name](https://goreportcard.com/badge/github.com/sdrapkin/fcrand)](https://goreportcard.com/report/github.com/sdrapkin/fcrand)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT) [![name](https://goreportcard.com/badge/github.com/sdrapkin/fcrand)](https://goreportcard.com/report/github.com/sdrapkin/fcrand) [![codecov](https://codecov.io/github/sdrapkin/fcrand/graph/badge.svg?token=CUTC5A7L3R)](https://codecov.io/github/sdrapkin/fcrand)
 ## `fcrand` is a high-performance drop-in replacement for Go's `crypto/rand`.<br>By [Stan Drapkin](https://github.com/sdrapkin/).
 
 ## Usage
