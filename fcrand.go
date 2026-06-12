@@ -18,6 +18,7 @@ import (
 	"io"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -73,6 +74,16 @@ var _ = map[bool]int{false: 0, maxBytesToFillViaCache == 512: 1}
 var Reader io.Reader
 var _reader = reader{}
 
+// Global epoch counter to handle VM snapshot restorations (e.g., AWS SnapStart)
+var globalEpoch atomic.Uint32
+
+// Reset increments the global epoch counter.
+// This must be registered to run during the AWS Lambda AfterRestore lifecycle hook.
+// It ensures that any cached data from a previous snapshot generation is immediately invalidated.
+func Reset() {
+	globalEpoch.Add(1)
+}
+
 func init() {
 	Reader = &_reader
 }
@@ -97,6 +108,15 @@ func Read(b []byte) (n int, err error) {
 	}
 
 	cachePtr := cachePool.Get().(*cache)
+
+	// --- SnapStart Validation Layer ---
+	// Atomically load the current global epoch. If it does not match the cache's local epoch,
+	// a snapshot restoration event occurred, and we instantly discard the stale random bytes.
+	if currentEpoch := globalEpoch.Load(); cachePtr.epoch != currentEpoch {
+		cachePtr.lbCount = 0 // force immediate refill on next use
+		cachePtr.sbCount = 0 // force immediate refill on next use
+		cachePtr.epoch = currentEpoch
+	}
 
 	if n < sbCutoff {
 		if n > cachePtr.sbCount {
@@ -160,14 +180,16 @@ type cache struct {
 	sb      []byte // small buffer
 	lbCount int    // count of bytes available in lb
 	sbCount int    // count of bytes available in sb
+	epoch   uint32 // tracks the snapshot generation version this cache belongs to
 }
 
 // cachePool is a sync.Pool that holds cache instances.
 var cachePool = sync.Pool{
 	New: func() any {
 		return &cache{
-			lb: make([]byte, lbByteSize),
-			sb: make([]byte, sbByteSize),
+			lb:    make([]byte, lbByteSize),
+			sb:    make([]byte, sbByteSize),
+			epoch: globalEpoch.Load(), // initialized to match whatever epoch is current at the time of cache creation
 		}
 	},
 }
