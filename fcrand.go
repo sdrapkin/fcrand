@@ -4,8 +4,8 @@
 // fcrand is designed to improve performance for applications that frequently request
 // small amounts of cryptographically secure random data (under 512 bytes).
 // For all other cases (>512 bytes) fcrand invokes crypto/rand.
-// fcrand uses a sync.Pool of 4kb byte caches to reduce the overhead of direct
-// crypto/rand system calls.
+// fcrand uses a sync.Pool of ~5KB byte caches (a 4KB large buffer and a 1KB small buffer)
+// to reduce the overhead of direct crypto/rand system calls.
 //
 // The fcrand API provides a drop-in replacement for crypto/rand,
 // including the Reader, Int(), Prime(), and Read() functions.
@@ -57,6 +57,11 @@ var _ = map[bool]int{false: 0, sbByteSize == 1024: 1}
 var _ = map[bool]int{false: 0, sbCutoff == 32: 1}
 var _ = map[bool]int{false: 0, maxBytesToFillViaCache == 512: 1}
 
+// readerFunc adapts a Read-shaped function to io.Reader
+type readerFunc func(b []byte) (n int, err error)
+
+func (f readerFunc) Read(b []byte) (int, error) { return f(b) }
+
 // Reader is a global, shared instance of a cryptographically
 // secure random number generator. It is safe for concurrent use.
 //
@@ -70,18 +75,7 @@ var _ = map[bool]int{false: 0, maxBytesToFillViaCache == 512: 1}
 //
 // In FIPS 140-3 mode, the output passes through an SP 800-90A Rev. 1
 // Deterministric Random Bit Generator (DRBG).
-var Reader io.Reader
-var _reader = reader{}
-
-func init() {
-	Reader = &_reader
-}
-
-type reader struct{}
-
-func (r *reader) Read(b []byte) (n int, err error) {
-	return Read(b)
-}
+var Reader io.Reader = readerFunc(Read)
 
 // Read fills b with cryptographically secure random bytes.
 // It never returns an error, and always fills b entirely.
@@ -148,13 +142,14 @@ func Text() string {
 	)
 
 	src := make([]byte, textLength)
-	_reader.Read(src) // guaranteed not to fail since Go 1.24
+	Read(src) // guaranteed not to fail since Go 1.24
 	for i := range src {
 		src[i] = base32_256[src[i]]
 	}
 	return unsafe.String(&src[0], textLength)
 }
 
+// cache holds a pair of pre-filled random buffers reused across Read calls via cachePool.
 type cache struct {
 	lb      []byte // large buffer
 	sb      []byte // small buffer
