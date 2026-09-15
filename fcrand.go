@@ -2,10 +2,9 @@
 // standard crypto/rand package.
 //
 // fcrand is designed to improve performance for applications that frequently request
-// small amounts of cryptographically secure random data (under 512 bytes).
+// small amounts of cryptographically secure random data (up to 512 bytes).
 // For all other cases (>512 bytes) fcrand invokes crypto/rand.
-// fcrand uses a sync.Pool of ~5KB byte caches (a 4KB large buffer and a 1KB small buffer)
-// to reduce the overhead of direct crypto/rand system calls.
+// fcrand uses a 4KB sync.Pool cache to reduce the overhead of direct crypto/rand system calls.
 //
 // The fcrand API provides a drop-in replacement for crypto/rand,
 // including the Reader, Int(), Prime(), and Read() functions.
@@ -22,45 +21,17 @@ import (
 )
 
 const (
-	lbBlockByteSize = 8                              // Size of a large buffer block in bytes
-	lbBlockCount    = 1 << 9                         // 512 blocks in large buffer (power of 2)
-	lbByteSize      = lbBlockByteSize * lbBlockCount // 4096 bytes per large buffer (512*8)
-
-	// small buffer does not use blocks (ie. small buffer block size is 1 byte)
-	sbByteSize = 1 << 10 // 1024 bytes per small buffer
-
+	bufferByteSize         = 1024*4 - 8 // 4088 bytes
 	maxBytesToFillViaCache = 512
-	sbCutoff               = 32
-
-	/*
-		Design Logic:
-		Large Buffer (4KB, 8-byte blocks):
-			- Efficient for requests ≥32 bytes, but wastes bytes when request size isn't a block multiple
-		Small Buffer (1KB, 1-byte granularity):
-			- Prevents waste for small requests <32 bytes by using every single byte
-
-		For example:
-			A 35-byte request uses the large buffer and consumes 40 bytes (5 blocks × 8), wasting 5 bytes
-			A 7-byte request uses the small buffer and consumes exactly 7 bytes, no waste
-
-		Why 32-byte small buffer cutoff:
-			- Below 32 bytes: Potential waste is significant (up to 7/8 = 87.5% for small requests)
-			- At 32+ bytes: Maximum waste is 7/40 = 17.5%, which becomes acceptable
-	*/
 )
 
 // Ensure that the constants are not changed without thought.
-var _ = map[bool]int{false: 0, lbBlockByteSize == 8: 1}
-var _ = map[bool]int{false: 0, lbBlockCount == 512: 1}
-var _ = map[bool]int{false: 0, lbByteSize == 4096: 1}
-var _ = map[bool]int{false: 0, sbByteSize == 1024: 1}
-var _ = map[bool]int{false: 0, sbCutoff == 32: 1}
-var _ = map[bool]int{false: 0, maxBytesToFillViaCache == 512: 1}
+var _ [0]struct{} = [bufferByteSize - 4088]struct{}{}
+var _ [0]struct{} = [maxBytesToFillViaCache - 512]struct{}{}
 
-// readerFunc adapts a Read-shaped function to io.Reader
-type readerFunc func(b []byte) (n int, err error)
+type readerStruct struct{}
 
-func (f readerFunc) Read(b []byte) (int, error) { return f(b) }
+func (rs readerStruct) Read(b []byte) (int, error) { return Read(b) }
 
 // Reader is a global, shared instance of a cryptographically
 // secure random number generator. It is safe for concurrent use.
@@ -74,8 +45,8 @@ func (f readerFunc) Read(b []byte) (int, error) { return f(b) }
 //   - On wasip1/wasm, Reader uses random_get.
 //
 // In FIPS 140-3 mode, the output passes through an SP 800-90A Rev. 1
-// Deterministric Random Bit Generator (DRBG).
-var Reader io.Reader = readerFunc(Read)
+// Deterministic Random Bit Generator (DRBG).
+var Reader io.Reader = readerStruct{}
 
 // Read fills b with cryptographically secure random bytes.
 // It never returns an error, and always fills b entirely.
@@ -90,29 +61,19 @@ func Read(b []byte) (n int, err error) {
 		return cryptoRand.Read(b)
 	}
 
-	cachePtr := cachePool.Get().(*cache)
+	cachei := cachePool.Get()
+	pcache := cachei.(*cacheStruct)
+	offset := pcache.offset
 
-	if n < sbCutoff {
-		if n > cachePtr.sbCount {
-			cryptoRand.Read(cachePtr.sb)
-			cachePtr.sbCount = sbByteSize
-		}
-		copy(b, cachePtr.sb[sbByteSize-cachePtr.sbCount:])
-		cachePtr.sbCount -= n
-	} else {
-		if n > cachePtr.lbCount {
-			cryptoRand.Read(cachePtr.lb)
-			cachePtr.lbCount = lbByteSize
-		}
-		copy(b, cachePtr.lb[lbByteSize-cachePtr.lbCount:])
-
-		// Update lbBytesConsumed based on the number of blocks consumed.
-		// The ceiling division accounts for partial block consumption.
-		lbBytesConsumed := (n + lbBlockByteSize - 1) &^ (lbBlockByteSize - 1)
-		cachePtr.lbCount -= lbBytesConsumed
+	if offset+n > bufferByteSize {
+		cryptoRand.Read(pcache.buffer[:])
+		offset = 0
 	}
 
-	cachePool.Put(cachePtr)
+	copy(b, pcache.buffer[offset:])
+	pcache.offset = offset + n
+
+	cachePool.Put(cachei)
 	return n, nil
 }
 
@@ -149,20 +110,13 @@ func Text() string {
 	return unsafe.String(&src[0], textLength)
 }
 
-// cache holds a pair of pre-filled random buffers reused across Read calls via cachePool.
-type cache struct {
-	lb      []byte // large buffer
-	sb      []byte // small buffer
-	lbCount int    // count of bytes available in lb
-	sbCount int    // count of bytes available in sb
+// cacheStruct holds a pre-filled random buffer reused across calls via cachePool.
+type cacheStruct struct {
+	buffer [bufferByteSize]byte // large buffer
+	offset int
 }
 
-// cachePool is a sync.Pool that holds cache instances.
+// cachePool is a sync.Pool that holds cacheStruct instances.
 var cachePool = sync.Pool{
-	New: func() any {
-		return &cache{
-			lb: make([]byte, lbByteSize),
-			sb: make([]byte, sbByteSize),
-		}
-	},
+	New: func() any { return &cacheStruct{offset: bufferByteSize} },
 }

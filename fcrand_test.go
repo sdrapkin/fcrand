@@ -122,13 +122,9 @@ func TestInt(t *testing.T) {
 	}
 }
 
-// Coverage test for cachePool.New
 func TestCachePool_New(t *testing.T) {
-	c := cachePool.New().(*cache)
-	if len(c.lb) != lbByteSize {
-		t.Fatalf("Expected lb size %d, got %d", lbByteSize, len(c.lb))
-	}
-	if len(c.sb) != sbByteSize {
-		t.Fatalf("Expected sb size %d, got %d", sbByteSize, len(c.sb))
+	pcache := cachePool.New().(*cacheStruct)
+	if len(pcache.buffer) != bufferByteSize {
+		t.Fatalf("Expected buffer size %d, got %d", bufferByteSize, len(pcache.buffer))
 	}
 }
