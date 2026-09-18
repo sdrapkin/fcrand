@@ -104,8 +104,8 @@ func Text() string {
 
 	src := make([]byte, textLength)
 	Read(src) // guaranteed not to fail since Go 1.24
-	for i := range src {
-		src[i] = base32_256[src[i]]
+	for i, ch := range src {
+		src[i] = base32_256[ch]
 	}
 	return unsafe.String(&src[0], textLength)
 }
