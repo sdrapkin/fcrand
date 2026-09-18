@@ -166,7 +166,7 @@ import rand "github.com/sdrapkin/fcrand"
 | **512** | 504.7 | 284.6 | **43.6%** faster | **1.77x** | 216 | 4 |
 | **1024** | 679.7 | 398.0 | **41.4%** faster | **1.71x** | 344 | 4 |
 
-*Note: **Time Saved (%)** reflects latency reduction per operation ($1 - \frac{\text{fcrand}}{\text{crypto}}$), whereas **Speedup (x)** reflects throughput increase ($\frac{\text{crypto}}{\text{fcrand}}$). Memory metrics (`B/op` and `Allocs/op`) are identical across both packages.*
+*Note: **Time Saved (%)** reflects latency reduction per operation (1 - `fcrand`/`crypto`), whereas **Speedup (x)** reflects throughput increase (`crypto`/`fcrand`). Memory metrics (`B/op` and `Allocs/op`) are identical across both packages.*
 
 ### fcrand.`Prime`:
 Benchmarking `fcrand.Prime` provides minimal diagnostic value because `fcrand.Prime` directly delegates execution to standard library `crypto/rand.Prime`, where overall runtime is overwhelmingly dominated by compute-bound [Miller-Rabin](https://go.dev/src/math/big/prime.go) primality testing in `math/big` rather than the speed of entropy retrieval.
