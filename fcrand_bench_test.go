@@ -3,6 +3,7 @@ package fcrand
 import (
 	gorand "crypto/rand"
 	"fmt"
+	"math/big"
 	"strconv"
 	"testing"
 )
@@ -112,5 +113,39 @@ func Benchmark_gorand_Concur(b *testing.B) {
 				})
 			})
 		}
+	}
+}
+
+func Benchmark_fcrand_Int(b *testing.B) {
+	bitSizes := []int{64, 128, 256, 512, 1024}
+	b.ReportAllocs()
+	for _, bits := range bitSizes {
+		max := new(big.Int).Lsh(big.NewInt(1), uint(bits))
+		benchName := fmt.Sprintf("Bits_%d", bits)
+		b.Run(benchName, func(b *testing.B) {
+			for b.Loop() {
+				_, err := Int(Reader, max)
+				if err != nil {
+					b.Fatalf("Int failed: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func Benchmark_gorand_Int(b *testing.B) {
+	bitSizes := []int{64, 128, 256, 512, 1024}
+	b.ReportAllocs()
+	for _, bits := range bitSizes {
+		max := new(big.Int).Lsh(big.NewInt(1), uint(bits))
+		benchName := fmt.Sprintf("Bits_%d", bits)
+		b.Run(benchName, func(b *testing.B) {
+			for b.Loop() {
+				_, err := Int(gorand.Reader, max)
+				if err != nil {
+					b.Fatalf("Int failed: %v", err)
+				}
+			}
+		})
 	}
 }
