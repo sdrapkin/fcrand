@@ -72,7 +72,7 @@ Full `go doc` style documentation: https://pkg.go.dev/github.com/sdrapkin/fcrand
 To install the `fcrand` package, run the following command:
 
 ```sh
-go get -u github.com/sdrapkin/fcrand
+go get github.com/sdrapkin/fcrand@latest
 ```
 
 To use the `fcrand` package in your Go project, import it as follows:
@@ -154,3 +154,19 @@ import rand "github.com/sdrapkin/fcrand"
 | 1024 | 64 | 241.50 | 232.30 | -4% | 1x    |
 | 2048 | 64 | 349.20 | 361.60 | 3%  | 1x    |
 | 4096 | 64 | 675.50 | 684.20 | 1%  | 1x    |
+
+### fcrand.`Int`:
+`fcrand.Int` (with `fcrand.Reader`) demonstrates consistent performance gains over `crypto/rand.Int` (with `crypto/rand.Reader`) across all tested bit lengths, achieving an average execution speedup of **1.7x to 1.8x** for integers 128 bits and larger.
+
+| Bit Size | `crypto/rand` (ns/op) | `fcrand` (ns/op) | Time Saved (%) | Speedup (x) | B/op | Allocs/op |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **64** | 312.3 | 250.7 | **19.7%** faster | **1.25x** | 96 | 4 |
+| **128** | 392.2 | 227.3 | **42.1%** faster | **1.73x** | 120 | 4 |
+| **256** | 439.9 | 245.0 | **44.3%** faster | **1.80x** | 152 | 4 |
+| **512** | 504.7 | 284.6 | **43.6%** faster | **1.77x** | 216 | 4 |
+| **1024** | 679.7 | 398.0 | **41.4%** faster | **1.71x** | 344 | 4 |
+
+*Note: **Time Saved (%)** reflects latency reduction per operation ($1 - \frac{\text{fcrand}}{\text{crypto}}$), whereas **Speedup (x)** reflects throughput increase ($\frac{\text{crypto}}{\text{fcrand}}$). Memory metrics (`B/op` and `Allocs/op`) are identical across both packages.*
+
+### fcrand.`Prime`:
+Benchmarking `fcrand.Prime` provides minimal diagnostic value because `fcrand.Prime` directly delegates execution to standard library `crypto/rand.Prime`, where overall runtime is overwhelmingly dominated by compute-bound [Miller-Rabin](https://go.dev/src/math/big/prime.go) primality testing in `math/big` rather than the speed of entropy retrieval.
